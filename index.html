@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Agency Nula Lead Finder за пронаоѓање бизниси без веб-страница и подготовка на персонализирани понуди.">
+  <title>Agency Nula — Lead Finder</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="wrap">
+    <header class="page-header">
+      <div class="eyebrow">Agency Nula · Internal tool</div>
+      <h1>Lead Finder</h1>
+      <p class="sub">Пронајди бизниси без веб-страница, провери го нивниот Instagram профил и дури потоа подготви соодветна понуда.</p>
+    </header>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>1. Пребарување</h2>
+          <p class="section-copy">Google Places се повикува преку безбеден Netlify backend. API клучот не се прикажува во browser.</p>
+        </div>
+        <div class="usage-pill" title="Локален бројач во овој browser">
+          <span>Places повици денес</span>
+          <strong id="placesUsage">8</strong>
+        </div>
+      </div>
+
+      <div class="grid search-grid">
+        <div>
+          <label for="categorySelect">Индустрија</label>
+          <select id="categorySelect">
+            <option value="">— избери индустрија —</option>
+          </select>
+        </div>
+        <div>
+          <label for="category">Категорија или клучен збор</label>
+          <input id="category" type="text" placeholder="пр. фризерски салон, автосервис, цвеќарница">
+          <div class="hint">Може да внесеш и сопствен клучен збор.</div>
+        </div>
+        <div>
+          <label for="city">Град или место</label>
+          <input id="city" type="text" value="Скопје" placeholder="пр. Скопје">
+        </div>
+        <div>
+          <label for="maxResults">Резултати</label>
+          <select id="maxResults">
+            <option value="10">до 10</option>
+            <option value="20" selected>до 20</option>
+          </select>
+          <div class="hint">Едно пребарување = еден Places API повик.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="searchBtn" type="button">Пребарај бизниси</button>
+        <button id="exportBtn" type="button" class="secondary" disabled>Симни CSV</button>
+        <span id="status" role="status" aria-live="polite"></span>
+      </div>
+
+      <div class="notice">
+        Instagram не се бара преку платено API. Копчето „Побарај Instagram“ отвора обично Google пребарување во нов таб, па ти лично го проверуваш профилот.
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>2. Резултати</h2>
+          <p class="section-copy">Прикажани се само бизниси кај кои Google Places не вратил веб-страница.</p>
+        </div>
+        <div class="result-counter"><span id="resultCount">0</span> leads</div>
+      </div>
+      <div id="resultsWrap" class="results-wrap">
+        <div class="empty">Избери индустрија и град, па кликни „Пребарај бизниси“.</div>
+      </div>
+    </section>
+
+    <footer>
+      Локалниот бројач е информативен и важи само во овој browser. За вистинска заштита од трошоци постави официјална квота во Google Cloud за Places API.
+    </footer>
+  </main>
+
+  <div id="offerModal" class="modal-backdrop" aria-hidden="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalBusinessName">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">Подготовка на понуда</div>
+          <h3 id="modalBusinessName">Бизнис</h3>
+          <div id="modalBusinessMeta" class="modal-meta"></div>
+        </div>
+        <button id="closeModalBtn" class="icon-btn" type="button" aria-label="Затвори">✕</button>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label for="offerType">Што сакаш да понудиш?</label>
+          <select id="offerType">
+            <option value="range" selected>Од основна до напредна веб-страница</option>
+            <option value="basic">Основна веб-страница</option>
+            <option value="professional">Професионална веб-страница</option>
+            <option value="booking">Веб-страница со закажување или резервации</option>
+            <option value="catalog">Веб-страница со каталог или онлајн нарачки</option>
+            <option value="website_gbp">Веб-страница + Google Business Profile</option>
+            <option value="custom">Сопствена понуда</option>
+          </select>
+        </div>
+        <div>
+          <label for="messageTone">Стил на порака</label>
+          <select id="messageTone">
+            <option value="warm" selected>Топол и пријателски</option>
+            <option value="professional">Професионален</option>
+            <option value="short">Краток и директен</option>
+          </select>
+        </div>
+        <div id="customOfferWrap" class="full-span hidden">
+          <label for="customOffer">Сопствен текст за понудата</label>
+          <input id="customOffer" type="text" placeholder="пр. веб-страница со мени и онлајн нарачки">
+        </div>
+        <div>
+          <label for="referenceLink">Линк до референци</label>
+          <input id="referenceLink" type="url" value="https://agencynula.com/">
+        </div>
+      </div>
+
+      <div class="row compact-row">
+        <button id="generateMessageBtn" type="button">Генерирај порака</button>
+        <button id="searchInstagramModalBtn" type="button" class="instagram">Побарај Instagram</button>
+      </div>
+
+      <label for="generatedMessage">Порака</label>
+      <textarea id="generatedMessage" placeholder="Пораката ќе се појави тука откако ќе кликнеш „Генерирај порака“."></textarea>
+      <div id="messageState" class="message-state" role="status" aria-live="polite"></div>
+
+      <div class="modal-actions">
+        <button id="copyMessageBtn" type="button" class="secondary">Копирај порака</button>
+        <button id="markContactedBtn" type="button">Означи како контактиран</button>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
