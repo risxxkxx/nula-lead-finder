@@ -15,7 +15,10 @@ function cleanText(value, maxLength){
 }
 
 export default async (request) => {
-  if (request.method !== 'POST') return json({error:'Дозволен е само POST повик.'}, 405);
+  if (request.method === 'GET') {
+    return json({ok:true, function:'places-search'});
+  }
+  if (request.method !== 'POST') return json({error:'Дозволени се GET и POST повици.'}, 405);
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey){
@@ -85,6 +88,3 @@ export default async (request) => {
   }
 };
 
-export const config = {
-  path:'/.netlify/functions/places-search'
-};
