@@ -78,3 +78,14 @@ Founder, NULA Studio
 https://agencynula.com/
 
 Portfolio: https://riste-kozarev.netlify.app/
+
+
+## Security
+
+- The Google Places API key is read only from the server-side Netlify environment variable `GOOGLE_PLACES_API_KEY`.
+- Local `.env` files are excluded from Git.
+- The Places proxy is rate-limited to 20 requests per 60 seconds per IP/domain to reduce accidental or abusive API usage.
+- Security headers are configured in `netlify.toml`, including CSP, clickjacking protection, MIME sniffing protection, and a restrictive permissions policy.
+- Configure a Google Cloud quota/budget for the Places API as an additional cost-control layer.
+
+Never commit real API keys, credentials, exported lead data, or local environment files to this repository.
