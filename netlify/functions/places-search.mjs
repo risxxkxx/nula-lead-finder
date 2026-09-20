@@ -88,3 +88,12 @@ export default async (request) => {
   }
 };
 
+
+export const config = {
+  path: '/.netlify/functions/places-search',
+  rateLimit: {
+    windowLimit: 20,
+    windowSize: 60,
+    aggregateBy: ['ip', 'domain']
+  }
+};
