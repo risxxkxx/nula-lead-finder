@@ -1,59 +1,80 @@
-# Agency Nula Lead Finder — Netlify верзија
+# NULA Lead Finder
 
-Оваа верзија:
+A lightweight lead-research tool for finding local businesses that do not appear to have a website and preparing personalised outreach for potential web-development clients.
 
-- го чува Google Places API клучот во Netlify Environment Variables
-- прикажува само бизниси кај кои Google Places не вратил веб-страница
-- не користи Google Custom Search API
-- отвора обично Google пребарување за Instagram, без API трошок
-- генерира понуда дури откако корисникот ќе го провери профилот
-- ги зачувува статусите и пораките локално во browser
+## Overview
 
-## Што треба да направиш
+NULA Lead Finder was built as an internal business-development tool for NULA Studio.
 
-### 1. Google Cloud
+The application uses Google Places data through a Netlify serverless function, filters results to businesses where no website is returned, and helps organise the next steps of manual outreach.
 
-Овозможи **Places API (New)** за твојот Google Cloud проект и задржи го постојниот API клуч.
+It does **not** automatically message businesses.
 
-Не го внесувај API клучот во HTML и не го објавувај на GitHub.
+## Features
 
-### 2. Поставување на Netlify
+- Search businesses by category and city
+- Google Places integration
+- Filter businesses without a returned website
+- Google Maps links for manual verification
+- Manual Instagram search workflow
+- Lead status tracking
+- Personalised outreach-message generation
+- Multiple offer types and message tones
+- Local persistence of lead status and prepared messages
+- CSV export
+- Basic API-usage counter
+- API key protected through Netlify environment variables
+- Security headers configured through Netlify
 
-Најсигурен начин е преку GitHub:
+## Workflow
 
-1. Отвори нов приватен GitHub repository.
-2. Постави ги сите фајлови од оваа папка во repository-то.
-3. Во Netlify избери **Add new site → Import an existing project**.
-4. Поврзи го GitHub repository-то.
-5. Build command остави празно.
-6. Publish directory постави `.` ако Netlify не го прочита автоматски од `netlify.toml`.
-7. Deploy.
+1. Choose a business category and location.
+2. Search through Google Places.
+3. Review businesses where no website was returned.
+4. Verify the business manually through Google Maps and Instagram search.
+5. Select the appropriate website offer.
+6. Generate and edit an outreach message.
+7. Mark the lead status.
+8. Export the results when needed.
 
-### 3. Додавање на API клучот
+## Tech Stack
 
-Во Netlify отвори:
+- **HTML**
+- **CSS**
+- **Vanilla JavaScript**
+- **Google Places API**
+- **Netlify Functions**
+- **Netlify**
+- **Browser localStorage**
 
-**Site configuration → Environment variables → Add a variable**
+## Architecture
 
-Име:
+The Google Places API key is not exposed in the frontend. Requests are routed through a Netlify serverless function, with the key stored as an environment variable.
+
+Lead notes, statuses, settings, and prepared messages are stored locally in the browser for this version of the tool.
+
+## Local / Deployment Setup
+
+The frontend can be viewed locally, but the Places search requires the Netlify backend.
+
+In Netlify, configure:
 
 ```text
 GOOGLE_PLACES_API_KEY
 ```
 
-Вредност: твојот Google Places API клуч.
+Then deploy the repository with the included `netlify.toml`.
 
-Потоа направи нов deploy.
+## Why I built it
 
-### 4. Заштита од трошоци
+The goal was to solve a real workflow problem: finding potential clients, reducing repetitive research, and preparing more relevant outreach without fully automating communication.
 
-Во Google Cloud постави дневна квота или буџетско известување за Places API. Локалниот бројач во алатката е само информативен и важи за еден browser.
+This project combines frontend development, API integration, serverless functions, business-process design, and practical automation.
 
-## Важно
+## Author
 
-Оваа алатка не испраќа Instagram пораки автоматски. Таа:
+**Riste Kozarev**  
+Founder, NULA Studio  
+https://agencynula.com/
 
-1. пронаоѓа бизнис без веб-страница
-2. отвора Google пребарување за Instagram профилот
-3. ти овозможува лично да го провериш профилот
-4. генерира порака само кога ќе избереш „Подготви понуда“
+Portfolio: https://riste-kozarev.netlify.app/
