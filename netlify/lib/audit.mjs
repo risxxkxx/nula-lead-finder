@@ -178,7 +178,9 @@ export function detectCopyright(html, now = new Date()){
   const fullText = textContent(html);
   const scopes = [];
   if (footers.length) scopes.push({where:'footer', text:textContent(footers.join(' '))});
-  scopes.push({where:'page-end', text:fullText.slice(Math.floor(fullText.length * 0.75))});
+  // Fallback: the last quarter of the visible text (at least the last 400 characters).
+  const tailStart = Math.max(0, Math.min(Math.floor(fullText.length * 0.75), fullText.length - 400));
+  scopes.push({where:'page-end', text:fullText.slice(tailStart)});
 
   const re = /(?:©|\(c\)|copyright)[^0-9]{0,40}?((?:19|20)\d{2})(?:\s*[-–—/]\s*((?:19|20)\d{2}))?/gi;
   for (const scope of scopes){
