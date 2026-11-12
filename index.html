@@ -54,6 +54,13 @@
         </div>
       </div>
 
+      <fieldset class="mode-toggle" id="searchMode">
+        <legend>Режим на пребарување</legend>
+        <label class="mode-option"><input type="radio" name="searchMode" value="no_website" checked><span>Без сајт</span></label>
+        <label class="mode-option"><input type="radio" name="searchMode" value="with_website"><span>Со сајт (за аудит)</span></label>
+        <label class="mode-option"><input type="radio" name="searchMode" value="all"><span>Сите</span></label>
+      </fieldset>
+
       <div class="row">
         <button id="searchBtn" type="button">Пребарај бизниси</button>
         <button id="exportBtn" type="button" class="secondary" disabled>Симни CSV</button>
@@ -69,7 +76,7 @@
       <div class="section-head">
         <div>
           <h2>2. Резултати</h2>
-          <p class="section-copy">Прикажани се само бизниси кај кои Google Places не вратил веб-страница.</p>
+          <p class="section-copy" id="resultsCopy">Прикажани се само бизниси кај кои Google Places не вратил веб-страница.</p>
         </div>
         <div class="result-counter"><span id="resultCount">0</span> leads</div>
       </div>

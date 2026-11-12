@@ -13,6 +13,27 @@ const USAGE_SEED_BY_DAY = {
 
 let currentResults = [];
 let activeLeadIndex = null;
+let currentMode = 'no_website';
+
+const MODE_COPY = {
+  no_website:{
+    results:'Прикажани се само бизниси кај кои Google Places не вратил веб-страница.',
+    empty:'Нема пронајдени бизниси без веб-страница за избраните критериуми.'
+  },
+  with_website:{
+    results:'Прикажани се бизниси што имаат веб-страница — кандидати за аудит и редизајн.',
+    empty:'Нема пронајдени бизниси со веб-страница за избраните критериуми.'
+  },
+  all:{
+    results:'Прикажани се сите пронајдени бизниси, со и без веб-страница.',
+    empty:'Нема пронајдени бизниси за избраните критериуми.'
+  }
+};
+
+function selectedMode(){
+  const checked = document.querySelector('input[name="searchMode"]:checked');
+  return MODE_COPY[checked?.value] ? checked.value : 'no_website';
+}
 
 const CATEGORIES = [
   ['Забна ординација / Стоматологија','забна ординација','dentist'],
@@ -241,7 +262,7 @@ function renderResults(rows){
   $('resultCount').textContent = String(rows.length);
   const wrap = $('resultsWrap');
   if (!rows.length){
-    wrap.innerHTML = '<div class="empty">Нема пронајдени бизниси без веб-страница за избраните критериуми.</div>';
+    wrap.innerHTML = `<div class="empty">${escapeHtml(MODE_COPY[currentMode].empty)}</div>`;
     $('exportBtn').disabled = true;
     return;
   }
@@ -253,6 +274,8 @@ function renderResults(rows){
       <td>
         <div class="business-name">${escapeHtml(row.name)}</div>
         <div class="meta">${escapeHtml(row.address || 'Без локација')}</div>
+        ${row.websiteUri ? `<a class="site-link" href="${escapeHtml(row.websiteUri)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.websiteUri)}</a>` : ''}
+        ${row.rating ? `<div class="rating">★ ${escapeHtml(row.rating.toFixed(1))}${row.userRatingCount ? ` · ${escapeHtml(row.userRatingCount)} оцени` : ''}</div>` : ''}
         ${row.message ? '<span class="tag">има подготвена порака</span>' : ''}
       </td>
       <td class="meta">${escapeHtml(row.phone || '—')}</td>
@@ -335,6 +358,7 @@ async function searchBusinesses(){
   const maxResults = Number($('maxResults').value);
   const selected = $('categorySelect').selectedOptions[0];
   const includedType = selected?.dataset.type || '';
+  const mode = selectedMode();
 
   if (!category || !city){
     setStatus('Избери или внеси категорија и град.', 'error');
@@ -343,6 +367,8 @@ async function searchBusinesses(){
 
   $('searchBtn').disabled = true;
   setStatus('Пребарувам преку Google Places...');
+  currentMode = mode;
+  $('resultsCopy').textContent = MODE_COPY[mode].results;
   currentResults = [];
   renderResults([]);
 
@@ -350,7 +376,7 @@ async function searchBusinesses(){
     const response = await fetch('/.netlify/functions/places-search', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({category,city,includedType,maxResults})
+      body:JSON.stringify({category,city,includedType,maxResults,mode})
     });
 
     const data = await response.json().catch(() => ({}));
@@ -359,7 +385,13 @@ async function searchBusinesses(){
     bumpPlacesUsage();
     currentResults = (data.results || []).map((row) => hydrateLead({...row,category,categoryType:includedType,city}));
     renderResults(currentResults);
-    setStatus(`Најдени ${data.totalFound || 0} бизниси, од кои ${currentResults.length} немаат веб-страница.`, 'success');
+    const total = data.totalFound || 0;
+    const summary = {
+      no_website:`Најдени ${total} бизниси, од кои ${currentResults.length} немаат веб-страница.`,
+      with_website:`Најдени ${total} бизниси, од кои ${currentResults.length} имаат веб-страница.`,
+      all:`Најдени ${total} бизниси (${data.withoutWebsite || 0} без веб-страница, ${data.withWebsite || 0} со веб-страница).`
+    };
+    setStatus(summary[mode], 'success');
   } catch (error){
     const localHint = window.location.protocol === 'file:' ? ' Оваа верзија мора да биде поставена на Netlify за backend-от да работи.' : '';
     setStatus(`${error.message}.${localHint}`.replace('..','.'), 'error');
