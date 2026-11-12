@@ -182,7 +182,10 @@ function render(root, data){
   const heroInner = el('div', 'container hero-inner');
   const heroText = el('div', 'hero-text');
   heroText.appendChild(el('div', 'eyebrow', data.category || copy.eyebrow));
-  heroText.appendChild(el('h1', '', copy.headline(data)));
+  const headline = el('h1', '', copy.headline(data));
+  const longestWord = Math.max(...data.name.split(/\s+/).map((word) => Array.from(word).length));
+  if (longestWord > 10 || Array.from(data.name).length > 24) headline.classList.add('long');
+  heroText.appendChild(headline);
   heroText.appendChild(el('p', 'lead', copy.lead(data)));
   const actions = el('div', 'hero-actions');
   const primary = link(tel || '#kontakt', 'btn primary', tel ? 'Јави се' : copy.primary);

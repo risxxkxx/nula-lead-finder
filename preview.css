@@ -53,7 +53,9 @@ p{margin:0}
 .hero{position:relative;overflow:hidden;padding:56px 0 64px}
 .hero-inner{display:grid;gap:44px;align-items:center}
 .eyebrow{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-strong);background:var(--accent-soft);padding:6px 12px;border-radius:999px;margin-bottom:20px}
-.hero h1{font-size:clamp(2.5rem,9vw,4.8rem);overflow-wrap:anywhere}
+.hero-text{min-width:0}
+.hero h1{font-size:clamp(2.5rem,9vw,4.8rem);overflow-wrap:break-word;hyphens:auto}
+.hero h1.long{font-size:clamp(2rem,7vw,3.7rem)}
 .lead{font-size:clamp(1.05rem,2.6vw,1.25rem);color:var(--muted);max-width:34ch;margin-top:18px}
 .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
 .rating-badge{display:inline-flex;align-items:center;gap:8px;margin-top:26px;padding:9px 14px 9px 11px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-size:14px;box-shadow:0 8px 24px -16px rgba(0,0,0,.4)}
