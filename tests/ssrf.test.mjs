@@ -1,9 +1,10 @@
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, beforeAll, afterAll} from 'vitest';
 import {Readable} from 'node:stream';
+import http from 'node:http';
 import zlib from 'node:zlib';
 import {
   isBlockedAddress, expandIPv6, normaliseTargetUrl, assertPublicHost,
-  createGuardedLookup, safeFetch, GuardError
+  createGuardedLookup, safeFetch, nodeTransport, GuardError
 } from '../netlify/lib/ssrf.mjs';
 
 const PUBLIC_V4 = '93.184.215.14';
@@ -227,5 +228,50 @@ describe('safeFetch', () => {
     const promise = safeFetch('https://site.example/', {transport, dnsLookup});
     await expectGuard(promise, 'network');
     await expect(promise).rejects.not.toThrow(/secret-detail/);
+  });
+});
+
+describe('nodeTransport (real sockets against a local server)', () => {
+  let server;
+  let port;
+  const base = (address) => (host, opts, cb) => cb(null, [{address, family:4}]);
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      if (req.url === '/redirect'){
+        res.writeHead(302, {Location:'/gz'});
+        return res.end();
+      }
+      if (req.url === '/gz'){
+        res.writeHead(200, {'Content-Type':'text/html; charset=utf-8', 'Content-Encoding':'gzip'});
+        return res.end(zlib.gzipSync('<title>Локален тест</title>'));
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    port = server.address().port;
+  });
+
+  afterAll(() => new Promise((resolve) => server.close(resolve)));
+
+  it('the guarded lookup blocks the socket when DNS answers with loopback (rebinding)', async () => {
+    const url = new URL(`http://rebind.example:${port}/gz`);
+    await expect(nodeTransport(url, {lookup:createGuardedLookup(base('127.0.0.1')), headers:{}})).rejects.toBeInstanceOf(GuardError);
+  });
+
+  it('performs redirects and gzip decoding end-to-end over real HTTP', async () => {
+    // Test-only plumbing: the public-looking host is mapped to the local server and the
+    // random test port is re-applied, so the production guards stay unchanged.
+    const transport = (url, opts) => {
+      const local = new URL(url.href);
+      local.port = String(port);
+      return nodeTransport(local, {...opts, lookup:base('127.0.0.1')});
+    };
+    const result = await safeFetch('http://site.example/redirect', {
+      transport,
+      dnsLookup:fakeDns({'site.example':[PUBLIC_V4]})
+    });
+    expect(result).toMatchObject({status:200, finalUrl:'http://site.example/gz', body:'<title>Локален тест</title>'});
   });
 });
