@@ -278,7 +278,7 @@ function buildMessage(row){
 }
 
 function instagramSearchUrl(row){
-  const terms = `site:instagram.com \"${row.name}\" ${row.city || ''} -inurl:/p/ -inurl:/reel/ -inurl:/stories/`;
+  const terms = `site:instagram.com "${row.name}" ${row.city || ''} -inurl:/p/ -inurl:/reel/ -inurl:/stories/`;
   return `https://www.google.com/search?q=${encodeURIComponent(terms)}`;
 }
 
@@ -749,8 +749,8 @@ async function postJson(path, body){
     if (!response.ok) throw new Error(data.error || `Backend грешка (${response.status})`);
     return data;
   } catch (error){
-    if (error.name === 'AbortError') throw new Error('Барањето истече — сајтот или PageSpeed одговараат премногу бавно');
-    if (error instanceof TypeError) throw new Error('Нема врска со backend-от. Аудитот работи само кога апликацијата е поставена на Netlify');
+    if (error.name === 'AbortError') throw new Error('Барањето истече — сајтот или PageSpeed одговараат премногу бавно', {cause:error});
+    if (error instanceof TypeError) throw new Error('Нема врска со backend-от. Аудитот работи само кога апликацијата е поставена на Netlify', {cause:error});
     throw error;
   } finally {
     clearTimeout(timer);

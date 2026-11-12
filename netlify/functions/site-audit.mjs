@@ -44,7 +44,7 @@ export function parseRobotsSitemaps(text){
 }
 
 async function checkRobotsAndSitemap(origin, fetchPage){
-  let robots = null;
+  let robots;
   let declared = [];
   try {
     const result = await fetchPage(`${origin}/robots.txt`, {accept:'text', ...SIDE_FETCH});
@@ -57,7 +57,7 @@ async function checkRobotsAndSitemap(origin, fetchPage){
   }
 
   const sitemapUrl = declared[0] || `${origin}/sitemap.xml`;
-  let sitemap = null;
+  let sitemap;
   try {
     const result = await fetchPage(sitemapUrl, {accept:'text', ...SIDE_FETCH});
     const body = (result.body || '').trimStart().slice(0, 300);

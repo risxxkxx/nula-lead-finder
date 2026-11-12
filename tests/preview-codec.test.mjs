@@ -74,7 +74,7 @@ describe('sanitising', () => {
   });
 
   it('strips control characters and bidi overrides', () => {
-    expect(cleanField('A\u0000B‮C⁦D\nE', 50)).toBe('A B C D E');
+    expect(cleanField('A\u0000B\u202eC\u2066D\nE', 50)).toBe('A B C D E');
   });
 
   it('caps by code points, not UTF-16 units', () => {
