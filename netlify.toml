@@ -57,3 +57,9 @@
   to = "/404.html"
   status = 404
   force = true
+
+[[redirects]]
+  from = "/node_modules/*"
+  to = "/404.html"
+  status = 404
+  force = true
