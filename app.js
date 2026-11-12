@@ -1,4 +1,4 @@
-'use strict';
+import {buildPreviewUrl, templateFor} from './js/preview-codec.js';
 
 const $ = (id) => document.getElementById(id);
 const STATUS_OPTIONS = ['Нов', 'Проверен Instagram', 'Подготвена порака', 'Контактиран', 'Одговорил', 'Заинтересиран', 'Не е заинтересиран', 'Не контактирај'];
@@ -14,6 +14,12 @@ const USAGE_SEED_BY_DAY = {
 let currentResults = [];
 let activeLeadIndex = null;
 let currentMode = 'no_website';
+let activeAuditIndex = null;
+let health = null;
+
+const OPPORTUNITY_CLASS = {'Висока':'high', 'Средна':'medium', 'Ниска':'low'};
+const SEVERITY_LABELS = {critical:'Критично', important:'Важно', minor:'Помало'};
+const PSI_LABELS = {performance:'Брзина', seo:'SEO', accessibility:'Пристапност', 'best-practices':'Добри практики'};
 
 const MODE_COPY = {
   no_website:{
@@ -186,13 +192,31 @@ function leadKey(row){
 
 function hydrateLead(row){
   const saved = loadLeadStore()[leadKey(row)] || {};
-  return {...row, status:saved.status || 'Нов', message:saved.message || ''};
+  return {
+    ...row,
+    status:saved.status || 'Нов',
+    message:saved.message || '',
+    audit:saved.audit || null,
+    auditMessage:saved.auditMessage || '',
+    auditSubject:saved.auditSubject || ''
+  };
 }
 
 function persistLead(row){
   const store = loadLeadStore();
-  store[leadKey(row)] = {status:row.status || 'Нов', message:row.message || '', updatedAt:new Date().toISOString()};
-  localStorage.setItem(STORAGE.leads, JSON.stringify(store));
+  store[leadKey(row)] = {
+    status:row.status || 'Нов',
+    message:row.message || '',
+    audit:row.audit || null,
+    auditMessage:row.auditMessage || '',
+    auditSubject:row.auditSubject || '',
+    updatedAt:new Date().toISOString()
+  };
+  try {
+    localStorage.setItem(STORAGE.leads, JSON.stringify(store));
+  } catch (_) {
+    setStatus('Локалната меморија на browser-от е полна — избриши стари leads или симни CSV.', 'error');
+  }
 }
 
 function getSettings(){
@@ -258,6 +282,26 @@ function instagramSearchUrl(row){
   return `https://www.google.com/search?q=${encodeURIComponent(terms)}`;
 }
 
+function previewUrlFor(row){
+  const label = String(row.category || '').trim();
+  return buildPreviewUrl(window.location.href, {
+    name:row.name,
+    category:label ? label.charAt(0).toLocaleUpperCase('mk') + label.slice(1) : '',
+    city:row.city,
+    address:row.address,
+    phone:row.phone,
+    rating:row.rating,
+    reviewCount:row.userRatingCount,
+    template:templateFor(row.categoryType || row.primaryType, row.category)
+  });
+}
+
+function auditBadge(audit){
+  if (!audit || typeof audit.score !== 'number') return '';
+  const level = OPPORTUNITY_CLASS[audit.opportunity] || 'low';
+  return `<span class="tag audit-tag ${level}">аудит ${escapeHtml(audit.score)}/100 · можност: ${escapeHtml(audit.opportunity)}</span>`;
+}
+
 function renderResults(rows){
   $('resultCount').textContent = String(rows.length);
   const wrap = $('resultsWrap');
@@ -267,24 +311,32 @@ function renderResults(rows){
     return;
   }
 
-  let html = '<table><thead><tr><th>Бизнис</th><th>Телефон</th><th>Статус</th><th>Провери</th><th>Понуда</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>Бизнис</th><th>Телефон</th><th>Статус</th><th>Провери</th><th>Понуда, аудит и концепт</th></tr></thead><tbody>';
   rows.forEach((row,index) => {
     const options = STATUS_OPTIONS.map((status) => `<option value="${escapeHtml(status)}" ${row.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('');
-    html += `<tr>
+    const offerAction = row.websiteUri
+      ? `<button type="button" data-action="audit" data-index="${index}">${row.audit ? 'Отвори аудит' : 'Аудит'}</button>`
+      : `<button type="button" data-action="offer" data-index="${index}">Подготви понуда</button>`;
+    html += `<tr class="${row.status === 'Не контактирај' ? 'do-not-contact' : ''}">
       <td>
         <div class="business-name">${escapeHtml(row.name)}</div>
         <div class="meta">${escapeHtml(row.address || 'Без локација')}</div>
         ${row.websiteUri ? `<a class="site-link" href="${escapeHtml(row.websiteUri)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.websiteUri)}</a>` : ''}
         ${row.rating ? `<div class="rating">★ ${escapeHtml(row.rating.toFixed(1))}${row.userRatingCount ? ` · ${escapeHtml(row.userRatingCount)} оцени` : ''}</div>` : ''}
-        ${row.message ? '<span class="tag">има подготвена порака</span>' : ''}
+        ${row.message || row.auditMessage ? '<span class="tag">има подготвена порака</span>' : ''}
+        ${auditBadge(row.audit)}
       </td>
       <td class="meta">${escapeHtml(row.phone || '—')}</td>
-      <td><select class="status-select" data-status-index="${index}">${options}</select></td>
+      <td><select class="status-select" data-status-index="${index}" aria-label="Статус за ${escapeHtml(row.name)}">${options}</select></td>
       <td><div class="actions">
         ${row.mapsUri ? `<a class="button-link secondary" href="${escapeHtml(row.mapsUri)}" target="_blank" rel="noopener noreferrer">Google Maps</a>` : ''}
         <a class="button-link instagram" href="${escapeHtml(instagramSearchUrl(row))}" target="_blank" rel="noopener noreferrer" data-instagram-index="${index}">Побарај Instagram</a>
       </div></td>
-      <td><div class="actions"><button type="button" data-offer-index="${index}">Подготви понуда</button></div></td>
+      <td><div class="actions lead-actions">
+        ${offerAction}
+        <a class="button-link secondary" href="${escapeHtml(previewUrlFor(row))}" target="_blank" rel="noopener noreferrer">Прегледај концепт</a>
+        <button type="button" class="secondary" data-action="copy-preview" data-index="${index}">Копирај линк</button>
+      </div></td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -296,6 +348,7 @@ function renderResults(rows){
       const row = currentResults[Number(select.dataset.statusIndex)];
       row.status = select.value;
       persistLead(row);
+      renderResults(currentResults);
     });
   });
 
@@ -306,10 +359,6 @@ function renderResults(rows){
       persistLead(row);
       renderResults(currentResults);
     });
-  });
-
-  wrap.querySelectorAll('[data-offer-index]').forEach((button) => {
-    button.addEventListener('click', () => openOfferModal(Number(button.dataset.offerIndex)));
   });
 }
 
@@ -331,11 +380,19 @@ function closeOfferModal(){
   activeLeadIndex = null;
 }
 
+function csvSafe(value){
+  // Prevent spreadsheet formula injection from business names or messages.
+  const text = String(value ?? '');
+  if (/^\+[\d\s()/-]+$/.test(text)) return text; // international phone numbers stay as they are
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
 function toCSV(rows){
-  const headers = ['Име','Телефон','Локација','Статус','Порака','Google Maps'];
+  const headers = ['Име','Телефон','Локација','Статус','Порака','Google Maps','Веб-страница','Google оцена','Број на оцени','Аудит скор','Можност','Аудит порака'];
   const lines = [headers.join(',')];
   for (const row of rows){
-    const values = [row.name,row.phone || '',row.address || '',row.status || 'Нов',row.message || '',row.mapsUri || ''];
+    const auditText = [row.auditSubject ? `Предмет: ${row.auditSubject}` : '', row.auditMessage || ''].filter(Boolean).join('\n\n');
+    const values = [row.name,row.phone || '',row.address || '',row.status || 'Нов',row.message || '',row.mapsUri || '',row.websiteUri || '',row.rating ?? '',row.userRatingCount ?? '',row.audit?.score ?? '',row.audit?.opportunity || '',auditText].map(csvSafe);
     lines.push(values.map((value) => `"${String(value).replace(/"/g,'""')}"`).join(','));
   }
   return lines.join('\n');
@@ -419,13 +476,21 @@ $('searchBtn').addEventListener('click', searchBusinesses);
 $('exportBtn').addEventListener('click', downloadCSV);
 $('closeModalBtn').addEventListener('click', closeOfferModal);
 $('offerModal').addEventListener('click', (event) => { if (event.target === $('offerModal')) closeOfferModal(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeOfferModal(); });
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  closeOfferModal();
+  closeAuditModal();
+});
 $('offerType').addEventListener('change', () => { toggleCustomOffer(); getSettings(); });
 ['messageTone','customOffer','referenceLink'].forEach((id) => $(id).addEventListener('input', getSettings));
 
 $('generateMessageBtn').addEventListener('click', () => {
   if (activeLeadIndex === null) return;
   const row = currentResults[activeLeadIndex];
+  if (row.status === 'Не контактирај'){
+    setMessageState('Овој бизнис е означен „Не контактирај“ — пораки не се генерираат.', 'error');
+    return;
+  }
   row.message = buildMessage(row);
   if (row.status === 'Нов' || row.status === 'Проверен Instagram') row.status = 'Подготвена порака';
   $('generatedMessage').value = row.message;
@@ -474,6 +539,386 @@ $('markContactedBtn').addEventListener('click', () => {
   persistLead(row);
   renderResults(currentResults);
   setMessageState('Бизнисот е означен како контактиран.', 'success');
+});
+
+// --- website audit + audit-based message --------------------------------------
+
+const AUDIT_TIMEOUT_MS = 70000;
+
+function setAuditState(text, type=''){
+  const el = $('auditState');
+  el.textContent = text;
+  el.className = `audit-state ${type}`.trim();
+}
+
+function setAuditMessageState(text, type=''){
+  const el = $('auditMessageState');
+  el.textContent = text;
+  el.className = `message-state ${type}`.trim();
+}
+
+function make(tag, className, text){
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+async function loadHealth(){
+  if (health) return health;
+  const check = async (name) => {
+    try {
+      const response = await fetch(`/.netlify/functions/${name}`, {headers:{Accept:'application/json'}});
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (_) {
+      return null;
+    }
+  };
+  const [audit, message] = await Promise.all([check('site-audit'), check('generate-message')]);
+  health = {
+    reachable:Boolean(audit && message),
+    pagespeedKey:Boolean(audit?.pagespeedKey),
+    ai:Boolean(message?.ai)
+  };
+  return health;
+}
+
+function renderKeyNotice(){
+  const notice = $('auditKeyNotice');
+  const lines = [];
+  if (health && !health.reachable){
+    lines.push('Netlify функциите не се достапни. Аудитот и генерирањето пораки работат само на Netlify (или со „netlify dev“).');
+  } else if (health){
+    if (!health.pagespeedKey) lines.push('PAGESPEED_API_KEY не е поставен — PageSpeed работи со мала заедничка квота и понекогаш нема да врати резултат.');
+    if (!health.ai) lines.push('ANTHROPIC_API_KEY не е поставен — пораките се составуваат од шаблон врз основа на наодите.');
+  }
+  notice.textContent = lines.join(' ');
+  notice.classList.toggle('hidden', !lines.length);
+}
+
+function summariseAudit(data){
+  return {
+    score:data.score,
+    technicalScore:data.technicalScore,
+    psiScore:data.psiScore,
+    opportunity:data.opportunity,
+    counts:data.counts,
+    finalUrl:data.finalUrl,
+    checkedAt:data.checkedAt,
+    findings:(data.findings || []).slice(0, 25).map(({id, severity, title, explanation, evidence, source}) => ({id, severity, title, explanation, evidence, source})),
+    psi:data.psi ? {categories:data.psi.categories, metrics:data.psi.metrics} : null,
+    psiReason:data.psiReason || null,
+    cms:data.facts?.cms ? {name:data.facts.cms.name, version:data.facts.cms.version} : null
+  };
+}
+
+function renderPsi(audit){
+  const block = $('psiBlock');
+  block.replaceChildren();
+  if (!audit.psi){
+    block.appendChild(make('div', 'notice', `Google PageSpeed: ${audit.psiReason || 'нема резултат.'} Прикажани се само HTML проверките.`));
+    return;
+  }
+  const title = make('div', 'psi-title', 'Google PageSpeed · мобилен');
+  block.appendChild(title);
+  const grid = make('div', 'psi-grid');
+  Object.entries(PSI_LABELS).forEach(([key, label]) => {
+    const value = audit.psi.categories?.[key];
+    const tile = make('div', `psi-tile ${typeof value === 'number' ? (value >= 90 ? 'good' : value >= 50 ? 'ok' : 'bad') : ''}`);
+    tile.appendChild(make('strong', '', typeof value === 'number' ? value : '—'));
+    tile.appendChild(make('span', '', label));
+    grid.appendChild(tile);
+  });
+  block.appendChild(grid);
+  const m = audit.psi.metrics || {};
+  const metrics = [];
+  if (typeof m.lcpMs === 'number') metrics.push(`LCP ${(m.lcpMs / 1000).toFixed(1)} s`);
+  if (typeof m.cls === 'number') metrics.push(`CLS ${m.cls.toFixed(2)}`);
+  if (typeof m.tbtMs === 'number') metrics.push(`TBT ${Math.round(m.tbtMs)} ms`);
+  if (typeof m.inpMs === 'number') metrics.push(`INP ${Math.round(m.inpMs)} ms (реални корисници)`);
+  if (metrics.length) block.appendChild(make('div', 'meta', metrics.join(' · ')));
+}
+
+function renderFindings(audit){
+  const wrap = $('auditFindings');
+  wrap.replaceChildren();
+  const findings = audit.findings || [];
+  if (!findings.length){
+    wrap.appendChild(make('div', 'empty', 'Нема пронајдени проблеми во автоматските проверки.'));
+    return;
+  }
+  ['critical', 'important', 'minor'].forEach((severity) => {
+    const group = findings.filter((f) => f.severity === severity);
+    if (!group.length) return;
+    const section = make('div', `finding-group ${severity}`);
+    section.appendChild(make('h4', '', `${SEVERITY_LABELS[severity]} (${group.length})`));
+    group.forEach((f) => {
+      const item = make('div', 'finding');
+      item.appendChild(make('div', 'finding-title', f.title));
+      item.appendChild(make('p', '', f.explanation));
+      item.appendChild(make('code', 'finding-evidence', f.evidence));
+      section.appendChild(item);
+    });
+    wrap.appendChild(section);
+  });
+}
+
+function renderAudit(row){
+  const audit = row.audit;
+  $('auditResults').classList.toggle('hidden', !audit);
+  $('auditMessageSection').classList.toggle('hidden', !audit);
+  $('runAuditBtn').textContent = audit ? 'Повтори аудит' : 'Започни аудит';
+  if (!audit) return;
+
+  $('auditScore').textContent = String(audit.score);
+  const opportunity = $('auditOpportunity');
+  opportunity.textContent = audit.opportunity;
+  opportunity.className = `opportunity ${OPPORTUNITY_CLASS[audit.opportunity] || 'low'}`;
+  const counts = $('auditCounts');
+  counts.replaceChildren();
+  ['critical', 'important', 'minor'].forEach((severity) => {
+    counts.appendChild(make('span', `count ${severity}`, `${SEVERITY_LABELS[severity]}: ${audit.counts?.[severity] ?? 0}`));
+  });
+  renderPsi(audit);
+  renderFindings(audit);
+  const checked = audit.checkedAt ? new Date(audit.checkedAt).toLocaleString('mk-MK') : '';
+  const cms = audit.cms ? ` · Систем: ${audit.cms.name}${audit.cms.version ? ` ${audit.cms.version}` : ''}` : '';
+  const formula = audit.psiScore === null || audit.psiScore === undefined
+    ? `Технички скор ${audit.technicalScore}/100 (без PageSpeed)`
+    : `60% технички ${audit.technicalScore} + 40% PageSpeed ${audit.psiScore}`;
+  $('auditMeta').textContent = `Проверено: ${checked} · ${audit.finalUrl || ''}${cms} · ${formula}`;
+
+  $('auditSubject').value = row.auditSubject || '';
+  $('auditMessage').value = row.auditMessage || '';
+  toggleSubject();
+}
+
+function toggleSubject(){
+  const isEmail = $('auditChannel').value === 'email';
+  $('auditSubjectWrap').classList.toggle('hidden', !isEmail);
+  $('copyAuditSubjectBtn').classList.toggle('hidden', !isEmail);
+}
+
+function applyDoNotContact(row){
+  const blocked = row.status === 'Не контактирај';
+  $('generateAuditMessageBtn').disabled = blocked;
+  $('markAuditContactedBtn').disabled = blocked;
+  if (blocked) setAuditMessageState('Овој бизнис е означен „Не контактирај“ — пораки не се генерираат.', 'error');
+}
+
+async function openAuditModal(index){
+  const row = currentResults[index];
+  if (!row || !row.websiteUri) return;
+  activeAuditIndex = index;
+  $('auditBusinessName').textContent = row.name;
+  $('auditSiteLink').textContent = row.websiteUri;
+  $('auditSiteLink').href = row.websiteUri;
+  $('auditPreviewLink').href = previewUrlFor(row);
+  $('auditOfferType').value = $('offerType').value;
+  $('auditTone').value = $('messageTone').value;
+  setAuditState(row.audit ? '' : 'Аудитот ги проверува HTML-от, robots.txt, sitemap.xml и Google PageSpeed. Може да трае до една минута.');
+  setAuditMessageState(row.auditMessage ? 'Зачувана порака — може да се измени.' : '');
+  $('auditMessageSource').textContent = '';
+  renderAudit(row);
+  applyDoNotContact(row);
+  $('auditModal').classList.add('open');
+  $('auditModal').setAttribute('aria-hidden','false');
+  await loadHealth();
+  renderKeyNotice();
+}
+
+function closeAuditModal(){
+  $('auditModal').classList.remove('open');
+  $('auditModal').setAttribute('aria-hidden','true');
+  activeAuditIndex = null;
+}
+
+async function postJson(path, body){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUDIT_TIMEOUT_MS);
+  try {
+    const response = await fetch(path, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+      signal:controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 429) throw new Error('Премногу барања во кратко време — почекај една минута и обиди се повторно');
+    if (!response.ok) throw new Error(data.error || `Backend грешка (${response.status})`);
+    return data;
+  } catch (error){
+    if (error.name === 'AbortError') throw new Error('Барањето истече — сајтот или PageSpeed одговараат премногу бавно');
+    if (error instanceof TypeError) throw new Error('Нема врска со backend-от. Аудитот работи само кога апликацијата е поставена на Netlify');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runAudit(){
+  if (activeAuditIndex === null) return;
+  const index = activeAuditIndex;
+  const row = currentResults[index];
+  const button = $('runAuditBtn');
+  button.disabled = true;
+  setAuditState('Анализирам го сајтот… (HTML проверки + Google PageSpeed, до 60 секунди)', 'loading');
+  try {
+    const data = await postJson('/.netlify/functions/site-audit', {url:row.websiteUri});
+    row.audit = summariseAudit(data);
+    persistLead(row);
+    renderResults(currentResults);
+    if (activeAuditIndex === index){
+      setAuditState(data.psi ? 'Аудитот е завршен.' : 'Аудитот е завршен без PageSpeed податоци.', 'success');
+      renderAudit(row);
+      applyDoNotContact(row);
+    }
+  } catch (error){
+    if (activeAuditIndex === index) setAuditState(`${error.message}.`, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function generateAuditMessage(){
+  if (activeAuditIndex === null) return;
+  const index = activeAuditIndex;
+  const row = currentResults[index];
+  if (!row.audit) return;
+  if (row.status === 'Не контактирај'){
+    applyDoNotContact(row);
+    return;
+  }
+  const settings = getSettings();
+  const button = $('generateAuditMessageBtn');
+  button.disabled = true;
+  setAuditMessageState('Подготвувам порака…');
+  try {
+    const data = await postJson('/.netlify/functions/generate-message', {
+      business:{
+        name:row.name,
+        category:row.category,
+        city:row.city,
+        website:row.audit.finalUrl || row.websiteUri,
+        rating:row.rating,
+        userRatingCount:row.userRatingCount
+      },
+      findings:row.audit.findings,
+      offer:{key:settings.offerType, text:selectedOffer(row, settings)},
+      tone:settings.tone,
+      channel:$('auditChannel').value,
+      referenceLink:settings.referenceLink
+    });
+    row.auditSubject = data.subject || '';
+    row.auditMessage = data.body || '';
+    if (row.status === 'Нов' || row.status === 'Проверен Instagram') row.status = 'Подготвена порака';
+    persistLead(row);
+    renderResults(currentResults);
+    if (activeAuditIndex === index){
+      $('auditSubject').value = row.auditSubject;
+      $('auditMessage').value = row.auditMessage;
+      $('auditMessageSource').textContent = data.source === 'ai' ? `AI (${data.model})` : 'Шаблон';
+      setAuditMessageState(data.notice || 'Пораката е генерирана и зачувана локално. Прочитај ја пред да ја испратиш.', data.notice ? '' : 'success');
+    }
+  } catch (error){
+    if (activeAuditIndex === index) setAuditMessageState(`${error.message}.`, 'error');
+  } finally {
+    button.disabled = row.status === 'Не контактирај';
+  }
+}
+
+async function copyText(text, fallbackEl){
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (_) {
+    if (fallbackEl){
+      fallbackEl.select();
+      return document.execCommand('copy');
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.className = 'clipboard-helper';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  }
+}
+
+$('resultsWrap').addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const index = Number(button.dataset.index);
+  const row = currentResults[index];
+  if (!row) return;
+  if (button.dataset.action === 'offer') openOfferModal(index);
+  if (button.dataset.action === 'audit') openAuditModal(index);
+  if (button.dataset.action === 'copy-preview'){
+    const ok = await copyText(previewUrlFor(row));
+    const original = 'Копирај линк';
+    button.textContent = ok ? 'Копирано ✓' : 'Не успеа';
+    setTimeout(() => { button.textContent = original; }, 1600);
+  }
+});
+
+$('closeAuditBtn').addEventListener('click', closeAuditModal);
+$('auditModal').addEventListener('click', (event) => { if (event.target === $('auditModal')) closeAuditModal(); });
+$('runAuditBtn').addEventListener('click', runAudit);
+$('generateAuditMessageBtn').addEventListener('click', generateAuditMessage);
+$('auditChannel').addEventListener('change', toggleSubject);
+$('auditOfferType').addEventListener('change', () => {
+  $('offerType').value = $('auditOfferType').value;
+  toggleCustomOffer();
+  getSettings();
+});
+$('auditTone').addEventListener('change', () => {
+  $('messageTone').value = $('auditTone').value;
+  getSettings();
+});
+
+['auditMessage', 'auditSubject'].forEach((id) => $(id).addEventListener('input', () => {
+  if (activeAuditIndex === null) return;
+  const row = currentResults[activeAuditIndex];
+  row.auditMessage = $('auditMessage').value;
+  row.auditSubject = $('auditSubject').value;
+  persistLead(row);
+  setAuditMessageState('Измените се зачувани локално.', 'success');
+}));
+
+$('copyAuditMessageBtn').addEventListener('click', async () => {
+  const text = $('auditMessage').value.trim();
+  if (!text){
+    setAuditMessageState('Прво генерирај порака.', 'error');
+    return;
+  }
+  await copyText(text, $('auditMessage'));
+  setAuditMessageState('Пораката е копирана.', 'success');
+});
+
+$('copyAuditSubjectBtn').addEventListener('click', async () => {
+  const text = $('auditSubject').value.trim();
+  if (!text){
+    setAuditMessageState('Нема наслов за копирање.', 'error');
+    return;
+  }
+  await copyText(text, $('auditSubject'));
+  setAuditMessageState('Насловот е копиран.', 'success');
+});
+
+$('markAuditContactedBtn').addEventListener('click', () => {
+  if (activeAuditIndex === null) return;
+  const row = currentResults[activeAuditIndex];
+  if (row.status === 'Не контактирај') return;
+  row.auditMessage = $('auditMessage').value.trim();
+  row.auditSubject = $('auditSubject').value.trim();
+  row.status = 'Контактиран';
+  persistLead(row);
+  renderResults(currentResults);
+  setAuditMessageState('Бизнисот е означен како контактиран.', 'success');
 });
 
 populateCategories();

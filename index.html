@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Agency Nula Lead Finder за пронаоѓање бизниси без веб-страница и подготовка на персонализирани понуди.">
+  <meta name="description" content="Agency Nula Lead Finder за пронаоѓање бизниси без веб-страница или со слаба веб-страница, аудит и подготовка на персонализирани понуди.">
   <title>Agency Nula — Lead Finder</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
-  <script src="app.js" defer></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
   <main class="wrap">
     <header class="page-header">
       <div class="eyebrow">Agency Nula · Internal tool</div>
       <h1>Lead Finder</h1>
-      <p class="sub">Пронајди бизниси без веб-страница, провери го нивниот Instagram профил и дури потоа подготви соодветна понуда.</p>
+      <p class="sub">Пронајди бизниси без веб-страница или со слаба веб-страница, провери ги рачно, направи аудит и дури потоа подготви соодветна понуда. Пораките никогаш не се испраќаат автоматски.</p>
     </header>
 
     <section class="card">
@@ -68,6 +69,10 @@
       </div>
 
       <div class="notice">
+        Режимот „Со сајт“ прикажува бизниси со веб-страница за кои може да се направи аудит (HTML проверки + Google PageSpeed). Аудитот е автоматска хевристика — секогаш провери го сајтот и рачно пред да контактираш.
+      </div>
+
+      <div class="notice">
         Instagram не се бара преку платено API. Копчето „Побарај Instagram“ отвора обично Google пребарување во нов таб, па ти лично го проверуваш профилот.
       </div>
     </section>
@@ -86,6 +91,7 @@
     </section>
 
     <footer>
+      Алатката никогаш не испраќа пораки автоматски. Контактирај рачно, почитувај ги правилата против спам и статусот „Не контактирај“.<br>
       Локалниот бројач е информативен и важи само во овој browser. За вистинска заштита од трошоци постави официјална квота во Google Cloud за Places API.
     </footer>
   </main>
@@ -144,6 +150,96 @@
       <div class="modal-actions">
         <button id="copyMessageBtn" type="button" class="secondary">Копирај порака</button>
         <button id="markContactedBtn" type="button">Означи како контактиран</button>
+      </div>
+    </section>
+  </div>
+  <div id="auditModal" class="modal-backdrop" aria-hidden="true">
+    <section class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="auditBusinessName">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">Аудит на веб-страница</div>
+          <h3 id="auditBusinessName">Бизнис</h3>
+          <a id="auditSiteLink" class="site-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+        <button id="closeAuditBtn" class="icon-btn" type="button" aria-label="Затвори">✕</button>
+      </div>
+
+      <div id="auditKeyNotice" class="notice hidden"></div>
+      <div id="auditState" class="audit-state" role="status" aria-live="polite"></div>
+
+      <div id="auditResults" class="hidden">
+        <div class="audit-summary">
+          <div class="score-box">
+            <span>Скор на сајтот</span>
+            <div><strong id="auditScore">—</strong><small>/100</small></div>
+          </div>
+          <div class="score-box">
+            <span>Можност за понуда</span>
+            <strong id="auditOpportunity" class="opportunity">—</strong>
+          </div>
+          <div class="score-box">
+            <span>Наоди</span>
+            <div id="auditCounts" class="counts"></div>
+          </div>
+        </div>
+        <div id="psiBlock" class="psi-block"></div>
+        <div id="auditFindings" class="findings"></div>
+        <div id="auditMeta" class="meta audit-meta"></div>
+      </div>
+
+      <div class="row compact-row">
+        <button id="runAuditBtn" type="button">Започни аудит</button>
+        <a id="auditPreviewLink" class="button-link secondary" href="#" target="_blank" rel="noopener noreferrer">Прегледај концепт</a>
+      </div>
+
+      <div id="auditMessageSection" class="audit-message hidden">
+        <h2>Персонализирана порака од наодите</h2>
+        <div class="grid three">
+          <div>
+            <label for="auditChannel">Канал</label>
+            <select id="auditChannel">
+              <option value="email" selected>Email</option>
+              <option value="instagram">Instagram DM</option>
+              <option value="viber">Viber (кратка)</option>
+            </select>
+          </div>
+          <div>
+            <label for="auditOfferType">Понуда</label>
+            <select id="auditOfferType">
+            <option value="range" selected>Од основна до напредна веб-страница</option>
+            <option value="basic">Основна веб-страница</option>
+            <option value="professional">Професионална веб-страница</option>
+            <option value="booking">Веб-страница со закажување или резервации</option>
+            <option value="catalog">Веб-страница со каталог или онлајн нарачки</option>
+            <option value="website_gbp">Веб-страница + Google Business Profile</option>
+            <option value="custom">Сопствена понуда</option>
+            </select>
+          </div>
+          <div>
+            <label for="auditTone">Стил на порака</label>
+            <select id="auditTone">
+              <option value="warm" selected>Топол и пријателски</option>
+              <option value="professional">Професионален</option>
+              <option value="short">Краток и директен</option>
+            </select>
+          </div>
+        </div>
+        <div class="row compact-row">
+          <button id="generateAuditMessageBtn" type="button">Генерирај порака</button>
+          <span id="auditMessageSource" class="meta"></span>
+        </div>
+        <div id="auditSubjectWrap" class="hidden">
+          <label for="auditSubject">Наслов (email)</label>
+          <input id="auditSubject" type="text" maxlength="160">
+        </div>
+        <label for="auditMessage">Порака</label>
+        <textarea id="auditMessage" placeholder="Пораката ќе се појави тука. Секогаш прочитај ја и прилагоди ја пред да ја испратиш рачно."></textarea>
+        <div id="auditMessageState" class="message-state" role="status" aria-live="polite"></div>
+        <div class="modal-actions">
+          <button id="copyAuditMessageBtn" type="button" class="secondary">Копирај порака</button>
+          <button id="copyAuditSubjectBtn" type="button" class="secondary hidden">Копирај наслов</button>
+          <button id="markAuditContactedBtn" type="button">Означи како контактиран</button>
+        </div>
       </div>
     </section>
   </div>
